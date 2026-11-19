@@ -1047,6 +1047,7 @@
                 category: 'all',        // 'all' | 'food' | 'cafe' | 'attraction' | 'shop' | 'stay' | 'service'
                 selectedPlaceId: null,
                 movingPlaceId: null,
+                editingPlaceId: null,
                 isSatellite: false,
                 isPickingLocation: false,
                 isDesktopCollapsed: false,
@@ -1447,6 +1448,17 @@
                     return true;
                 } catch (err) {
                     console.warn('Firestore update coords failed:', err);
+                    return false;
+                }
+            }
+
+            async function deletePlaceFromFirestore(placeId) {
+                if (!db) return false;
+                try {
+                    await db.collection(FIRESTORE_COLLECTION).doc(placeId).delete();
+                    return true;
+                } catch (err) {
+                    console.warn('Firestore delete failed:', err);
                     return false;
                 }
             }
@@ -1862,10 +1874,16 @@
                                 <i class="fa-solid fa-location-dot text-emerald-600 mt-1 w-4 text-center shrink-0"></i>
                                 <div class="flex-1">
                                     <p class="text-slate-800 font-medium">${escapeHTML(place.address || place.subdistrict + ' อ.เทิง จ.เชียงราย')}</p>
-                                    <div class="flex items-center flex-wrap gap-2 mt-1">
+                                    <div class="flex items-center flex-wrap gap-1.5 mt-1">
                                         <p class="text-[11px] text-slate-400 font-mono">${place.lat.toFixed(6)}, ${place.lng.toFixed(6)}</p>
                                         <button id="btn-move-pin" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-heading font-medium transition">
                                             <i class="fa-solid fa-location-crosshairs text-[10px]"></i> ย้ายพิกัด
+                                        </button>
+                                        <button id="btn-edit-place" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[11px] font-heading font-medium transition">
+                                            <i class="fa-solid fa-pen-to-square text-[10px]"></i> แก้ไข
+                                        </button>
+                                        <button id="btn-delete-place" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-heading font-medium transition">
+                                            <i class="fa-solid fa-trash text-[10px]"></i> ลบ
                                         </button>
                                     </div>
                                 </div>
@@ -1938,6 +1956,14 @@
                 const btnMovePin = document.getElementById('btn-move-pin');
                 if (btnMovePin) {
                     btnMovePin.addEventListener('click', () => enterMovePinMode(place));
+                }
+                const btnEditPlace = document.getElementById('btn-edit-place');
+                if (btnEditPlace) {
+                    btnEditPlace.addEventListener('click', () => openEditModal(place));
+                }
+                const btnDeletePlace = document.getElementById('btn-delete-place');
+                if (btnDeletePlace) {
+                    btnDeletePlace.addEventListener('click', () => deletePlace(place));
                 }
             }
 
@@ -2086,8 +2112,24 @@
                 }
             }
 
+            function setModalMode(isEdit) {
+                const heading = dom.addPinModal.querySelector('h2');
+                const submitBtn = dom.addPinForm.querySelector('button[type="submit"]');
+                if (heading) {
+                    heading.textContent = isEdit ? 'แก้ไขข้อมูลสถานที่' : 'ปักหมุดร้านค้า/สถานที่ใหม่';
+                }
+                if (submitBtn) {
+                    submitBtn.innerHTML = isEdit
+                        ? '<i class="fa-solid fa-floppy-disk"></i> บันทึกการแก้ไข'
+                        : '<i class="fa-solid fa-check"></i> บันทึกหมุดลงแผนที่';
+                }
+            }
+
             function openAddModalWithCoords(lat, lng) {
                 exitPickingMode();
+                state.editingPlaceId = null;
+                setModalMode(false);
+                dom.addPinForm.reset();
 
                 // Show temporary pin on map
                 tempPickMarker = L.marker([lat, lng]).addTo(map);
@@ -2099,7 +2141,57 @@
                 dom.addPinModal.classList.remove('hidden');
             }
 
+            function openEditModal(place) {
+                exitPickingMode();
+                state.editingPlaceId = place.id;
+                setModalMode(true);
+                dom.addPinForm.reset();
+
+                document.getElementById('input-name').value = place.name || '';
+                document.getElementById('input-category').value = place.category || 'shop';
+                document.getElementById('input-subdistrict').value = place.subdistrict || 'ต.เวียง';
+                document.getElementById('input-audience').value = place.audience || 'both';
+                document.getElementById('input-hours').value = place.hours || '';
+                document.getElementById('input-phone').value = (place.phone && place.phone !== '-') ? place.phone : '';
+                document.getElementById('input-price').value = place.priceRange || '';
+                document.getElementById('input-highlights').value = place.highlights || '';
+                document.getElementById('input-tips').value = place.localTips || '';
+
+                const placeAmenities = new Set(place.amenities || []);
+                document.querySelectorAll('input[name="amenities"]').forEach(cb => {
+                    cb.checked = placeAmenities.has(cb.value);
+                });
+
+                dom.inputLat.value = Number(place.lat).toFixed(6);
+                dom.inputLng.value = Number(place.lng).toFixed(6);
+                dom.formCoordsDisplay.textContent = `${Number(place.lat).toFixed(5)}, ${Number(place.lng).toFixed(5)}`;
+                dom.addPinModal.classList.remove('hidden');
+            }
+
+            async function deletePlace(place) {
+                if (!confirm(`ต้องการลบ "${place.name}" ออกจากแผนที่ใช่หรือไม่?`)) return;
+
+                places = places.filter(p => p.id !== place.id);
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) {
+                        const existing = JSON.parse(saved).filter(p => p.id !== place.id);
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+                    }
+                } catch (err) {
+                    console.warn('Could not remove place from localStorage:', err);
+                }
+
+                closeDetailView();
+                const deletedFromCloud = await deletePlaceFromFirestore(place.id);
+                showToast(
+                    deletedFromCloud ? `ลบ "${place.name}" ออกจาก Firestore แล้ว` : `ลบ "${place.name}" เรียบร้อยแล้ว`,
+                    'fa-trash'
+                );
+            }
+
             function closeAddModal() {
+                state.editingPlaceId = null;
                 dom.addPinModal.classList.add('hidden');
                 if (tempPickMarker) {
                     map.removeLayer(tempPickMarker);
@@ -2127,6 +2219,55 @@
 
                 if (!name || !highlights || isNaN(lat) || isNaN(lng)) {
                     showToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'fa-circle-exclamation', true);
+                    return;
+                }
+
+                // โหมดแก้ไขข้อมูลสถานที่เดิม
+                if (state.editingPlaceId) {
+                    const idx = places.findIndex(p => p.id === state.editingPlaceId);
+                    if (idx !== -1) {
+                        const prev = places[idx];
+                        const updatedPlace = {
+                            ...prev,
+                            name,
+                            category,
+                            audience,
+                            lat,
+                            lng,
+                            subdistrict,
+                            address: prev.address || `${subdistrict} อ.เทิง จ.เชียงราย`,
+                            hours,
+                            phone,
+                            priceRange,
+                            shortDesc: highlights.length > 75 ? highlights.slice(0, 75) + '...' : highlights,
+                            highlights,
+                            localTips,
+                            amenities: checkedAmenities
+                        };
+                        places[idx] = updatedPlace;
+
+                        try {
+                            const saved = localStorage.getItem(STORAGE_KEY);
+                            if (saved) {
+                                const existing = JSON.parse(saved).map(p => p.id === updatedPlace.id ? updatedPlace : p);
+                                localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+                            }
+                        } catch (err) {
+                            console.warn('Could not update place in localStorage:', err);
+                        }
+
+                        savePlaceToFirestore(updatedPlace).then((ok) => {
+                            if (ok) {
+                                showToast(`บันทึกการแก้ไข "${name}" ลง Firestore แล้ว!`, 'fa-cloud-arrow-up');
+                            }
+                        });
+
+                        closeAddModal();
+                        dom.addPinForm.reset();
+                        updateApp();
+                        selectPlace(updatedPlace.id, false);
+                        showToast(`อัปเดตข้อมูล "${name}" เรียบร้อยแล้ว`, 'fa-circle-check');
+                    }
                     return;
                 }
 
