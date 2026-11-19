@@ -232,9 +232,14 @@
                             <p class="text-[11px] text-slate-500">แผนที่ร้านค้าและท่องเที่ยว อ.เทิง จ.เชียงราย</p>
                         </div>
                     </div>
-                    <span id="total-count-badge" class="text-[11px] font-heading font-medium bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-200">
-                        12 แห่ง
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <span id="total-count-badge" class="text-[11px] font-heading font-medium bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-200">
+                            12 แห่ง
+                        </span>
+                        <button id="btn-admin-mode" title="เข้าสู่โหมด Admin" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition text-xs border border-slate-200">
+                            <i id="admin-mode-icon" class="fa-solid fa-lock"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Search Bar -->
@@ -282,8 +287,8 @@
         </button>
     </div>
 
-    <!-- ==================== FLOATING "+ ปักหมุดร้านใหม่" BUTTON ==================== -->
-    <button id="btn-add-pin" class="fixed bottom-[148px] md:bottom-6 left-3 md:left-auto md:right-20 z-[950] flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-heading font-semibold text-sm px-4 py-3 rounded-2xl shadow-xl hover:shadow-2xl active:scale-95 transition-all border border-emerald-400/40">
+    <!-- ==================== FLOATING "+ ปักหมุดร้านใหม่" BUTTON (Admin Only) ==================== -->
+    <button id="btn-add-pin" class="hidden fixed bottom-[148px] md:bottom-6 left-3 md:left-auto md:right-20 z-[950] flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-heading font-semibold text-sm px-4 py-3 rounded-2xl shadow-xl hover:shadow-2xl active:scale-95 transition-all border border-emerald-400/40">
         <i class="fa-solid fa-plus-circle text-base"></i>
         <span>ปักหมุดร้านใหม่</span>
     </button>
@@ -493,6 +498,8 @@
             const DEFAULT_ZOOM = 13;
             const STORAGE_KEY = 'thoeng_map_custom_places_v1';
             const COORD_OVERRIDES_KEY = 'thoeng_map_coord_overrides_v1';
+            const ADMIN_SESSION_KEY = 'thoeng_map_is_admin_v1';
+            const ADMIN_PIN = '1234'; // เปลี่ยนรหัสผ่าน Admin ได้ที่นี่
 
             // Firebase Configuration (Project: thoeng-map)
             const FIREBASE_CONFIG = {
@@ -1048,6 +1055,7 @@
                 selectedPlaceId: null,
                 movingPlaceId: null,
                 editingPlaceId: null,
+                isAdmin: false,
                 isSatellite: false,
                 isPickingLocation: false,
                 isDesktopCollapsed: false,
@@ -1073,6 +1081,8 @@
                 searchInput: document.getElementById('search-input'),
                 btnClearSearch: document.getElementById('btn-clear-search'),
                 totalCountBadge: document.getElementById('total-count-badge'),
+                btnAdminMode: document.getElementById('btn-admin-mode'),
+                adminModeIcon: document.getElementById('admin-mode-icon'),
                 btnToggleSidebar: document.getElementById('btn-toggle-sidebar'),
                 toggleSidebarIcon: document.getElementById('toggle-sidebar-icon'),
                 mobileDrawerHandle: document.getElementById('mobile-drawer-handle'),
@@ -1876,6 +1886,7 @@
                                     <p class="text-slate-800 font-medium">${escapeHTML(place.address || place.subdistrict + ' อ.เทิง จ.เชียงราย')}</p>
                                     <div class="flex items-center flex-wrap gap-1.5 mt-1">
                                         <p class="text-[11px] text-slate-400 font-mono">${place.lat.toFixed(6)}, ${place.lng.toFixed(6)}</p>
+                                        ${state.isAdmin ? `
                                         <button id="btn-move-pin" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-heading font-medium transition">
                                             <i class="fa-solid fa-location-crosshairs text-[10px]"></i> ย้ายพิกัด
                                         </button>
@@ -1885,6 +1896,7 @@
                                         <button id="btn-delete-place" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] font-heading font-medium transition">
                                             <i class="fa-solid fa-trash text-[10px]"></i> ลบ
                                         </button>
+                                        ` : ''}
                                     </div>
                                 </div>
                             </div>
@@ -2058,7 +2070,54 @@
                 if (subEl) subEl.textContent = subtitle;
             }
 
+            function setAdminMode(enabled) {
+                state.isAdmin = Boolean(enabled);
+                try {
+                    if (state.isAdmin) {
+                        sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+                    } else {
+                        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+                    }
+                } catch (_) {}
+
+                if (state.isAdmin) {
+                    dom.btnAddPin.classList.remove('hidden');
+                    dom.btnAdminMode.className = 'px-2 h-7 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1 transition text-[11px] font-heading font-medium shadow-sm';
+                    dom.btnAdminMode.title = 'กำลังใช้งานโหมด Admin (คลิกเพื่อกลับเป็น Viewer)';
+                    dom.btnAdminMode.innerHTML = '<i class="fa-solid fa-unlock text-[10px]"></i><span>Admin</span>';
+                } else {
+                    exitPickingMode();
+                    closeAddModal();
+                    dom.btnAddPin.classList.add('hidden');
+                    dom.btnAdminMode.className = 'w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition text-xs border border-slate-200';
+                    dom.btnAdminMode.title = 'เข้าสู่โหมด Admin';
+                    dom.btnAdminMode.innerHTML = '<i class="fa-solid fa-lock"></i>';
+                }
+
+                if (state.selectedPlaceId) {
+                    const current = places.find(p => p.id === state.selectedPlaceId);
+                    if (current) renderDetailView(current);
+                }
+            }
+
+            function toggleAdminMode() {
+                if (state.isAdmin) {
+                    setAdminMode(false);
+                    showToast('สลับกลับเป็นโหมด Viewer แล้ว', 'fa-eye');
+                    return;
+                }
+                const pin = prompt('กรอกรหัสผ่าน Admin:');
+                if (pin === null) return;
+                if (pin.trim() === ADMIN_PIN) {
+                    setAdminMode(true);
+                    showToast('เข้าสู่โหมด Admin แล้ว (เพิ่ม/แก้ไข/ย้าย/ลบหมุดได้)', 'fa-unlock');
+                } else {
+                    showToast('รหัสผ่าน Admin ไม่ถูกต้อง', 'fa-circle-exclamation', true);
+                }
+            }
+
             function enterPickingMode() {
+                if (!state.isAdmin) return;
                 state.movingPlaceId = null;
                 state.isPickingLocation = true;
                 setPickingBannerText('โหมดปักหมุดสถานที่ใหม่', 'คลิกบนแผนที่เพื่อเลือกตำแหน่ง หรือใช้จุดกึ่งกลางแผนที่');
@@ -2069,6 +2128,7 @@
             }
 
             function enterMovePinMode(place) {
+                if (!state.isAdmin) return;
                 state.isPickingLocation = false;
                 state.movingPlaceId = place.id;
                 setPickingBannerText(`โหมดย้ายพิกัด: ${place.name}`, 'คลิกบนแผนที่เพื่อวางตำแหน่งใหม่ (จะคัดลอกพิกัดให้อัตโนมัติ)');
@@ -2142,6 +2202,7 @@
             }
 
             function openEditModal(place) {
+                if (!state.isAdmin) return;
                 exitPickingMode();
                 state.editingPlaceId = place.id;
                 setModalMode(true);
@@ -2169,6 +2230,7 @@
             }
 
             async function deletePlace(place) {
+                if (!state.isAdmin) return;
                 if (!confirm(`ต้องการลบ "${place.name}" ออกจากแผนที่ใช่หรือไม่?`)) return;
 
                 places = places.filter(p => p.id !== place.id);
@@ -2457,6 +2519,11 @@
                     );
                 });
 
+                // Admin Mode Toggle
+                if (dom.btnAdminMode) {
+                    dom.btnAdminMode.addEventListener('click', toggleAdminMode);
+                }
+
                 // Add Pin Interactive Mode
                 dom.btnAddPin.addEventListener('click', enterPickingMode);
                 dom.btnCancelPick.addEventListener('click', exitPickingMode);
@@ -2491,8 +2558,18 @@
                 loadInitialPlaces();
                 initMap();
                 bindEvents();
+                let savedAdmin = false;
+                try {
+                    savedAdmin = sessionStorage.getItem(ADMIN_SESSION_KEY) === '1';
+                } catch (_) {}
+                setAdminMode(savedAdmin);
                 updateApp();
                 syncPlacesWithFirestore();
+
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('admin') === '1' && !state.isAdmin) {
+                    setTimeout(toggleAdminMode, 300);
+                }
             }
 
             window.addEventListener('DOMContentLoaded', init);
