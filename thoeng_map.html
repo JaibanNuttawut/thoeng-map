@@ -477,6 +477,10 @@
     <!-- Leaflet.js Script -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
+    <!-- Firebase Compat SDK (App + Firestore) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
     <script>
         /**
          * =====================================================================
@@ -488,11 +492,25 @@
             const THOENG_CENTER = [19.6850, 100.1940];
             const DEFAULT_ZOOM = 13;
             const STORAGE_KEY = 'thoeng_map_custom_places_v1';
+            const COORD_OVERRIDES_KEY = 'thoeng_map_coord_overrides_v1';
 
-            // ตั้งค่า Google Sheet สำหรับดึงข้อมูลสถานที่
-            // วิธีที่ 1: ใส่ลิงก์ CSV จากเมนู File > Share > Publish to web > เลือก CSV
-            // วิธีที่ 2: หรือใส่แค่ sheetId (รหัสใน URL ของ Google Sheet) + ชื่อแท็บ sheetName (ต้องแชร์เป็น "ทุกคนที่มีลิงก์อ่านได้")
+            // Firebase Configuration (Project: thoeng-map)
+            const FIREBASE_CONFIG = {
+                apiKey: "AIzaSyAT6jtEunefuDgxLCRaqHwfEzqTn3Zb4Jw",
+                authDomain: "thoeng-map.firebaseapp.com",
+                projectId: "thoeng-map",
+                storageBucket: "thoeng-map.firebasestorage.app",
+                messagingSenderId: "156584581340",
+                appId: "1:156584581340:web:bd31a8aac80d13ce767c19",
+                measurementId: "G-DD16B80P26"
+            };
+            const FIRESTORE_COLLECTION = 'places';
+            let db = null;
+
+            // ตั้งค่า Google Sheet สำหรับดึงและบันทึกข้อมูลสถานที่ (2 ทาง)
+            // ใส่ Web App URL จาก Google Apps Script ใน appsScriptUrl เพื่อให้ทั้งอ่าน + เพิ่มหมุด + ย้ายพิกัดลงชีตได้โดยตรง
             const GOOGLE_SHEET_CONFIG = {
+                appsScriptUrl: '',
                 csvUrl: '',
                 sheetId: '1InXBPZhHAxOTzJADn608cGhgzDOeJN67Z4bKXXvJIGE',
                 sheetName: 'places'
@@ -808,6 +826,216 @@
                     localTips: 'เป็นจุดแวะพักที่ดีมากหลังจากลงจากภูชี้ฟ้าเพื่อไปต่อดอยผาตั้ง ช่วง 08:30 - 10:00 น. ยังพอมีหมอกลอยผ่านหน้าร้าน',
                     amenities: ['ที่จอดรถ', 'สแกนจ่าย', 'ถ่ายรูปสวย', 'ห้องน้ำสะอาด'],
                     tags: ['คาเฟ่', 'วิวภูเขา', 'กาแฟดอย', 'ตับเต่า', 'ผาตั้ง']
+                },
+                {
+                    id: 'p13',
+                    name: 'วัดพระธาตุจอมจ้อ',
+                    category: 'attraction',
+                    audience: 'both',
+                    lat: 19.6879,
+                    lng: 100.1846,
+                    subdistrict: 'ต.เวียง',
+                    address: 'บ้านเวียงจอมจ้อ ต.เวียง อ.เทิง จ.เชียงราย 57160',
+                    rating: 4.8,
+                    reviewCount: 312,
+                    isOpen: true,
+                    hours: '06:00 - 18:00 น. (เปิดทุกวัน)',
+                    phone: '053-795-190',
+                    priceRange: 'เข้าชมฟรี',
+                    shortDesc: '1 ในพระธาตุ 9 จอมศักดิ์สิทธิ์คู่เมืองเชียงราย ตั้งบนยอดดอยจอมจ้อชมวิวเมืองเทิงและแม่น้ำอิง',
+                    highlights: 'องค์พระธาตุจอมจ้อบรรจุพระเกศาธาตุ, จุดชมวิวมุมสูงเห็นตัวเมืองเทิงและลำน้ำอิง, บันไดนาคและวิหารศิลปะล้านนา',
+                    localTips: 'นิยมไหว้ขอพรด้านการเจรจาค้าขายและสิริมงคล ช่วงเย็น 16:30 - 17:30 น. แสงสวยและลมเย็น เหมาะแก่การชมวิวเมืองเทิง',
+                    amenities: ['ที่จอดรถ', 'ห้องน้ำสะอาด', 'จุดชมวิว', 'จุดทำบุญ'],
+                    tags: ['พระธาตุ 9 จอม', 'วัด', 'ไหว้พระ', 'จุดชมวิว', 'เวียงเทิง']
+                },
+                {
+                    id: 'p14',
+                    name: 'Paragraph Cafe & Eatery',
+                    category: 'cafe',
+                    audience: 'both',
+                    lat: 19.6904,
+                    lng: 100.1932,
+                    subdistrict: 'ต.เวียง',
+                    address: 'ด้านหลังปั๊มน้ำมันคาลเท็กซ์ ถนนสาย 1020 ต.เวียง อ.เทิง จ.เชียงราย',
+                    rating: 4.8,
+                    reviewCount: 265,
+                    isOpen: true,
+                    hours: '08:00 - 18:00 น. (เปิดทุกวัน)',
+                    phone: '080-494-9595',
+                    priceRange: '70 - 250 บาท',
+                    shortDesc: 'คาเฟ่เรือนกระจกสไตล์โมเดิร์นกลางสวนป่าต้นซิลเวอร์โอ้ค มีทั้งโซนแอร์ สนามหญ้า และ Pet Friendly',
+                    highlights: 'กาแฟสเปเชียลตี้, ครัวซองต์และเบเกอรีโฮมเมด, อาหารฟิวชั่น-สลัดสด และมุมแคมป์ปิ้งถ่ายรูปในสวน',
+                    localTips: 'เป็นจุดแวะพักยอดฮิตก่อนขึ้นภูชี้ฟ้า พาน้องหมา-น้องแมวมาโซนสวนด้านนอกได้ มีที่จอดรถกว้างขวาง',
+                    amenities: ['ที่จอดรถ', 'สแกนจ่าย', 'Wi-Fi ฟรี', 'ห้องแอร์', 'ถ่ายรูปสวย', 'Pet Friendly'],
+                    tags: ['คาเฟ่', 'เรือนกระจก', 'เบเกอรี', 'อาหารฟิวชั่น', 'Pet Friendly']
+                },
+                {
+                    id: 'p15',
+                    name: 'Pankam Coffee Roaster (พัน-คำ)',
+                    category: 'cafe',
+                    audience: 'both',
+                    lat: 19.6838,
+                    lng: 100.1964,
+                    subdistrict: 'ต.เวียง',
+                    address: 'ภายในปั๊มน้ำมันเอสโซ่ (บางจาก) ต.เวียง อ.เทิง จ.เชียงราย',
+                    rating: 4.7,
+                    reviewCount: 158,
+                    isOpen: true,
+                    hours: '07:30 - 17:00 น. (เปิดทุกวัน)',
+                    phone: '095-689-4242',
+                    priceRange: '55 - 130 บาท',
+                    shortDesc: 'โรงคั่วกาแฟและคาเฟ่บรรยากาศอบอุ่น เดินทางสะดวก เหมาะแวะเติมคาเฟอีนก่อนเดินทางต่อ',
+                    highlights: 'เมล็ดกาแฟคั่วเองหลากโทนรสชาติ, กาแฟดริป, ชาเขียวเข้มข้น และไอศกรีมโฮมเมด',
+                    localTips: 'แวะจอดรถง่ายมากเพราะอยู่ในปั๊มน้ำมัน เหมาะสำหรับคอกาแฟที่อยากเลือกเมล็ดคั่วเองก่อนขึ้นดอย',
+                    amenities: ['ที่จอดรถ', 'สแกนจ่าย', 'ห้องแอร์', 'ถ่ายรูปสวย'],
+                    tags: ['คาเฟ่', 'โรงคั่วกาแฟ', 'กาแฟสด', 'ไอศกรีม']
+                },
+                {
+                    id: 'p16',
+                    name: 'Mao Kao Coffee Roaster (เมาเขา คอฟฟี่)',
+                    category: 'cafe',
+                    audience: 'tourist',
+                    lat: 19.7485,
+                    lng: 100.2890,
+                    subdistrict: 'ต.ตับเต่า',
+                    address: 'เส้นทางขึ้นภูชี้ฟ้า ต.ตับเต่า อ.เทิง จ.เชียงราย',
+                    rating: 4.8,
+                    reviewCount: 142,
+                    isOpen: true,
+                    hours: '08:00 - 17:00 น. (เปิดทุกวัน)',
+                    phone: '098-765-4321',
+                    priceRange: '60 - 140 บาท',
+                    shortDesc: 'คาเฟ่ขนาดกะทัดรัดวิวหลักล้าน ท่ามกลางทุ่งนาและทิวเขาบนเส้นทางมุ่งหน้าสู่ภูชี้ฟ้า',
+                    highlights: 'กาแฟคั่วหอมเข้ม, โกโก้เย็น, ระเบียงชมวิวภูเขาและทุ่งนาแบบเปิดโล่งรับลมธรรมชาติ',
+                    localTips: 'เหมาะแวะพักรถและจิบกาแฟรับลมก่อนขึ้นทางชันไปภูชี้ฟ้า ช่วงเช้าอากาศเย็นสบายมาก',
+                    amenities: ['ที่จอดรถ', 'สแกนจ่าย', 'ถ่ายรูปสวย', 'วิวภูเขา'],
+                    tags: ['คาเฟ่', 'วิวภูเขา', 'ทุ่งนา', 'ทางขึ้นภูชี้ฟ้า']
+                },
+                {
+                    id: 'p17',
+                    name: 'สรวลกะเฟ (Saraul Coffee)',
+                    category: 'cafe',
+                    audience: 'both',
+                    lat: 19.6960,
+                    lng: 100.1885,
+                    subdistrict: 'ต.เวียง',
+                    address: 'ริมถนนสาย 1020 (เทิง-เชียงราย) ต.เวียง อ.เทิง จ.เชียงราย',
+                    rating: 4.7,
+                    reviewCount: 118,
+                    isOpen: true,
+                    hours: '08:00 - 17:30 น. (เปิดทุกวัน)',
+                    phone: '086-192-3344',
+                    priceRange: '50 - 120 บาท',
+                    shortDesc: 'คาเฟ่แนวธรรมชาติร่มรื่น เต็มไปด้วยต้นไม้และดอกไม้ประดับ พร้อมมุมบ้านไม้ให้นั่งพักชิลๆ',
+                    highlights: 'กาแฟสดรสกลมกล่อม, ชาผลไม้สดชื่น, เค้กโฮมเมด และโซนสวนดอกไม้ร่มรื่น',
+                    localTips: 'อยู่ติดถนนสายหลักเทิง-เชียงราย แวะจอดง่าย ราคามิตรภาพ เหมาะนั่งพักผ่อนระหว่างเดินทาง',
+                    amenities: ['ที่จอดรถ', 'สแกนจ่าย', 'ถ่ายรูปสวย', 'โซนสวนธรรมชาติ'],
+                    tags: ['คาเฟ่', 'สวนต้นไม้', 'ถนน 1020', 'กาแฟสด']
+                },
+                {
+                    id: 'p18',
+                    name: 'Jongdee Café (จงดี คาเฟ่)',
+                    category: 'cafe',
+                    audience: 'both',
+                    lat: 19.6852,
+                    lng: 100.1968,
+                    subdistrict: 'ต.เวียง',
+                    address: 'เขตเทศบาลตำบลเวียงเทิง ต.เวียง อ.เทิง จ.เชียงราย',
+                    rating: 4.7,
+                    reviewCount: 94,
+                    isOpen: true,
+                    hours: '08:30 - 17:30 น. (เปิดทุกวัน)',
+                    phone: '089-432-8877',
+                    priceRange: '55 - 135 บาท',
+                    shortDesc: 'คาเฟ่โทนสีสดใสน่ารักใจกลางเวียงเทิง มีมุมถ่ายรูปสวยทั้งในร้านและโซนดาดฟ้า',
+                    highlights: 'เครื่องดื่มซิกเนเจอร์สดชื่น, เค้กและเบเกอรีโฮมเมดหลากหลายเมนู, มุมถ่ายรูปดาดฟ้า',
+                    localTips: 'ช่วงบ่ายแสงแดดบนโซนดาดฟ้าถ่ายรูปสวยมาก แนะนำลองเค้กโฮมเมดประจำวันของทางร้าน',
+                    amenities: ['ที่จอดรถ', 'สแกนจ่าย', 'Wi-Fi ฟรี', 'ห้องแอร์', 'ถ่ายรูปสวย'],
+                    tags: ['คาเฟ่', 'เบเกอรี', 'ดาดฟ้า', 'เวียงเทิง']
+                },
+                {
+                    id: 'p19',
+                    name: 'ครัวอุไร@เทิง',
+                    category: 'food',
+                    audience: 'both',
+                    lat: 19.6865,
+                    lng: 100.1930,
+                    subdistrict: 'ต.เวียง',
+                    address: 'ต.เวียง อ.เทิง จ.เชียงราย 57160',
+                    rating: 4.6,
+                    reviewCount: 176,
+                    isOpen: true,
+                    hours: '10:00 - 20:00 น. (เปิดทุกวัน)',
+                    phone: '053-795-488',
+                    priceRange: '60 - 250 บาท',
+                    shortDesc: 'ร้านอาหารไทยและอาหารตามสั่งรสชาติจัดจ้านถึงเครื่อง รสมือท้องถิ่นแท้ๆ ในตัวเมืองเทิง',
+                    highlights: 'ผัดเผ็ดหมูป่า, แกงส้มชะอมกุ้ง, ปลาทับทิมทอดกระเทียม และอาหารจานเดียวรสเด็ด',
+                    localTips: 'เหมาะทั้งแวะทานมื้อกลางวันและมื้อเย็นกับครอบครัว ช่วงเที่ยงลูกค้าค่อนข้างเยอะ แนะนำมาก่อน 12:00 น.',
+                    amenities: ['ที่จอดรถ', 'สแกนจ่าย', 'รองรับกลุ่มใหญ่', 'ห้องน้ำสะอาด'],
+                    tags: ['อาหารไทย', 'อาหารตามสั่ง', 'ร้านอาหารเทิง', 'มื้อเย็น']
+                },
+                {
+                    id: 'p20',
+                    name: 'วนอุทยานภูหลงถัง',
+                    category: 'attraction',
+                    audience: 'tourist',
+                    lat: 19.8325,
+                    lng: 100.4310,
+                    subdistrict: 'ต.ตับเต่า',
+                    address: 'บ้านร่มฟ้าทอง ต.ตับเต่า อ.เทิง จ.เชียงราย',
+                    rating: 4.7,
+                    reviewCount: 128,
+                    isOpen: true,
+                    hours: '05:30 - 18:00 น. (เปิดทุกวัน)',
+                    phone: '053-714-914',
+                    priceRange: 'เข้าชมฟรี',
+                    shortDesc: 'จุดชมวิวทะเลหมอกและป่าเขาที่เงียบสงบ ใกล้ภูชี้ฟ้า เหมาะสำหรับคนชอบธรรมชาติไม่พลุกพล่าน',
+                    highlights: 'จุดชมทะเลหมอกยามเช้าแบบเป็นส่วนตัว, เส้นทางศึกษาธรรมชาติป่าดิบเขา และลานกางเต็นท์',
+                    localTips: 'เป็นทางเลือกที่คนน้อยกว่าภูชี้ฟ้า แต่อากาศหนาวและวิวสวยไม่แพ้กัน ควรเตรียมเสื้อกันหนาวให้พร้อม',
+                    amenities: ['ที่จอดรถ', 'จุดชมวิว', 'ลานกางเต็นท์', 'ห้องน้ำ'],
+                    tags: ['วนอุทยาน', 'ทะเลหมอก', 'กางเต็นท์', 'ตับเต่า']
+                },
+                {
+                    id: 'p21',
+                    name: 'สถานีตำรวจภูธรเทิง',
+                    category: 'service',
+                    audience: 'both',
+                    lat: 19.6854,
+                    lng: 100.1947,
+                    subdistrict: 'ต.เวียง',
+                    address: 'หมู่ 15 ต.เวียง อ.เทิง จ.เชียงราย 57160',
+                    rating: 4.3,
+                    reviewCount: 54,
+                    isOpen: true,
+                    hours: 'เปิดบริการ 24 ชั่วโมง',
+                    phone: '053-795-191',
+                    priceRange: 'บริการประชาชน',
+                    shortDesc: 'สถานีตำรวจประจำอำเภอเทิง รับแจ้งเหตุฉุกเฉิน แจ้งความ และดูแลความปลอดภัยตลอด 24 ชม.',
+                    highlights: 'ศูนย์รับแจ้งเหตุ 191, บริการแจ้งความเอกสารหาย และจุดประสานงานช่วยเหลือนักท่องเที่ยว',
+                    localTips: 'ตั้งอยู่ใกล้ที่ว่าการอำเภอเทิง กรณีฉุกเฉินบนเส้นทางขึ้นภูชี้ฟ้าสามารถโทรประสานได้ตลอด 24 ชั่วโมง',
+                    amenities: ['เปิด 24 ชม.', 'ที่จอดรถ', 'จุดบริการประชาชน'],
+                    tags: ['ตำรวจ', 'ฉุกเฉิน', 'แจ้งความ', '24 ชั่วโมง']
+                },
+                {
+                    id: 'p22',
+                    name: 'สถานีขนส่งผู้โดยสารอำเภอเทิง',
+                    category: 'service',
+                    audience: 'both',
+                    lat: 19.6836,
+                    lng: 100.1920,
+                    subdistrict: 'ต.เวียง',
+                    address: 'ต.เวียง อ.เทิง จ.เชียงราย 57160',
+                    rating: 4.2,
+                    reviewCount: 79,
+                    isOpen: true,
+                    hours: '05:30 - 19:00 น. (เปิดทุกวัน)',
+                    phone: '053-795-100',
+                    priceRange: 'ตามอัตราค่าโดยสาร',
+                    shortDesc: 'ศูนย์รวมรถโดยสารประจำทางสายเชียงราย-เทิง-เชียงคำ และจุดต่อรถสองแถวขึ้นภูชี้ฟ้า',
+                    highlights: 'รถบัส/รถตู้สายเชียงราย-เทิง, รถเชื่อมต่อไปเชียงคำ-พะเยา และจุดนัดพบรถรับส่งขึ้นดอย',
+                    localTips: 'หากเดินทางจากตัวเมืองเชียงรายโดยรถประจำทาง สามารถลงที่นี่แล้วต่อรถท้องถิ่นไปยังจุดต่างๆ ใน อ.เทิง ได้สะดวก',
+                    amenities: ['ที่จอดรถ', 'ห้องน้ำ', 'จุดจำหน่ายตั๋ว', 'ร้านค้าใกล้เคียง'],
+                    tags: ['ขนส่ง', 'รถโดยสาร', 'รถตู้', 'เดินทาง']
                 }
             ];
 
@@ -818,6 +1046,7 @@
                 audience: 'all',        // 'all' | 'tourist' | 'local'
                 category: 'all',        // 'all' | 'food' | 'cafe' | 'attraction' | 'shop' | 'stay' | 'service'
                 selectedPlaceId: null,
+                movingPlaceId: null,
                 isSatellite: false,
                 isPickingLocation: false,
                 isDesktopCollapsed: false,
@@ -1048,8 +1277,44 @@
                 });
             }
 
+            async function postToAppsScript(payload) {
+                const url = (GOOGLE_SHEET_CONFIG.appsScriptUrl || '').trim();
+                if (!url) return false;
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) return false;
+                    const data = await res.json();
+                    return Boolean(data && data.ok);
+                } catch (err) {
+                    console.warn('Apps Script POST failed:', err);
+                    return false;
+                }
+            }
+
             async function fetchPlacesFromGoogleSheet() {
-                // หากตั้งค่า sheetId ใช้ JSONP เพื่อเลี่ยงปัญหา CORS เวลาเปิดไฟล์ตรงๆ (file://)
+                // วิธีหลัก: ดึงผ่าน Google Apps Script Web App (รองรับอ่าน-เขียน 2 ทาง)
+                const appsScriptUrl = (GOOGLE_SHEET_CONFIG.appsScriptUrl || '').trim();
+                if (appsScriptUrl) {
+                    const response = await fetch(appsScriptUrl, { cache: 'no-store' });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    if (!data || !data.ok || !Array.isArray(data.places)) {
+                        throw new Error((data && data.error) || 'Invalid Apps Script response');
+                    }
+                    return data.places
+                        .map((record, idx) => {
+                            const headers = Object.keys(record);
+                            const values = headers.map(k => (record[k] != null ? String(record[k]) : ''));
+                            return mapSheetRowToPlace(headers, values, idx);
+                        })
+                        .filter(Boolean);
+                }
+
+                // วิธีสำรอง: หากตั้งค่า sheetId ใช้ JSONP เพื่อเลี่ยงปัญหา CORS เวลาเปิดไฟล์ตรงๆ (file://)
                 if (GOOGLE_SHEET_CONFIG.sheetId && GOOGLE_SHEET_CONFIG.sheetId.trim() && !(GOOGLE_SHEET_CONFIG.csvUrl && GOOGLE_SHEET_CONFIG.csvUrl.trim())) {
                     return await fetchPlacesViaJsonp(GOOGLE_SHEET_CONFIG.sheetId, GOOGLE_SHEET_CONFIG.sheetName);
                 }
@@ -1086,8 +1351,42 @@
                 return [];
             }
 
+            function getCoordOverrides() {
+                try {
+                    const saved = localStorage.getItem(COORD_OVERRIDES_KEY);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed && typeof parsed === 'object') return parsed;
+                    }
+                } catch (err) {
+                    console.warn('Could not load coord overrides:', err);
+                }
+                return {};
+            }
+
+            function saveCoordOverride(placeId, lat, lng) {
+                try {
+                    const overrides = getCoordOverrides();
+                    overrides[placeId] = { lat, lng };
+                    localStorage.setItem(COORD_OVERRIDES_KEY, JSON.stringify(overrides));
+                } catch (err) {
+                    console.warn('Could not save coord override:', err);
+                }
+            }
+
+            function applyCoordOverrides(placeList) {
+                const overrides = getCoordOverrides();
+                return placeList.map(p => {
+                    const ov = overrides[p.id];
+                    if (ov && typeof ov.lat === 'number' && typeof ov.lng === 'number') {
+                        return { ...p, lat: ov.lat, lng: ov.lng };
+                    }
+                    return p;
+                });
+            }
+
             function loadInitialPlaces() {
-                places = [...getCustomPlacesFromStorage(), ...DEFAULT_PLACES];
+                places = applyCoordOverrides([...getCustomPlacesFromStorage(), ...DEFAULT_PLACES]);
             }
 
             async function syncPlacesFromGoogleSheet() {
@@ -1097,13 +1396,105 @@
                 try {
                     const sheetPlaces = await fetchPlacesFromGoogleSheet();
                     if (Array.isArray(sheetPlaces) && sheetPlaces.length > 0) {
-                        places = [...getCustomPlacesFromStorage(), ...sheetPlaces];
+                        places = applyCoordOverrides([...getCustomPlacesFromStorage(), ...sheetPlaces]);
                         updateApp();
                         showToast(`โหลดข้อมูล ${sheetPlaces.length} แห่งจาก Google Sheet แล้ว`, 'fa-table');
                     }
                 } catch (err) {
                     console.warn('ไม่สามารถดึงข้อมูลจาก Google Sheet ได้ ใช้ข้อมูลสำรองแทน:', err);
                     showToast('ดึงข้อมูลจาก Google Sheet ไม่สำเร็จ (ตรวจสอบการแชร์ชีต)', 'fa-triangle-exclamation', true);
+                }
+            }
+
+            function initFirestore() {
+                try {
+                    if (typeof firebase === 'undefined' || !FIREBASE_CONFIG.projectId) return null;
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(FIREBASE_CONFIG);
+                    }
+                    return firebase.firestore();
+                } catch (err) {
+                    console.warn('Firebase init failed:', err);
+                    return null;
+                }
+            }
+
+            async function seedDefaultPlacesToFirestore() {
+                if (!db) return;
+                const batch = db.batch();
+                DEFAULT_PLACES.forEach((p, idx) => {
+                    const ref = db.collection(FIRESTORE_COLLECTION).doc(p.id);
+                    batch.set(ref, { ...p, order: idx + 1 });
+                });
+                await batch.commit();
+            }
+
+            async function savePlaceToFirestore(place) {
+                if (!db) return false;
+                try {
+                    await db.collection(FIRESTORE_COLLECTION).doc(place.id).set(place, { merge: true });
+                    return true;
+                } catch (err) {
+                    console.warn('Firestore save place failed:', err);
+                    return false;
+                }
+            }
+
+            async function updatePlaceCoordsInFirestore(placeId, lat, lng) {
+                if (!db) return false;
+                try {
+                    await db.collection(FIRESTORE_COLLECTION).doc(placeId).set({ lat, lng }, { merge: true });
+                    return true;
+                } catch (err) {
+                    console.warn('Firestore update coords failed:', err);
+                    return false;
+                }
+            }
+
+            async function syncPlacesWithFirestore() {
+                db = initFirestore();
+                if (!db) {
+                    syncPlacesFromGoogleSheet();
+                    return;
+                }
+
+                try {
+                    const snap = await db.collection(FIRESTORE_COLLECTION).get();
+                    if (snap.empty) {
+                        await seedDefaultPlacesToFirestore();
+                        showToast(`อัปโหลดข้อมูลเริ่มต้น ${DEFAULT_PLACES.length} แห่งขึ้น Firestore แล้ว`, 'fa-cloud-arrow-up');
+                    }
+
+                    // Real-time listener: อัปเดตแผนที่อัตโนมัติเมื่อข้อมูลใน Firestore เปลี่ยน
+                    let isFirstSnapshot = true;
+                    db.collection(FIRESTORE_COLLECTION).onSnapshot((snapshot) => {
+                        const cloudPlaces = [];
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            if (data && data.name && typeof data.lat === 'number' && typeof data.lng === 'number') {
+                                cloudPlaces.push({ ...data, id: data.id || doc.id });
+                            }
+                        });
+                        if (cloudPlaces.length > 0) {
+                            cloudPlaces.sort((a, b) => (a.order || 9999) - (b.order || 9999));
+                            places = cloudPlaces;
+                            updateApp();
+                            if (state.selectedPlaceId) {
+                                const current = places.find(p => p.id === state.selectedPlaceId);
+                                if (current) renderDetailView(current);
+                            }
+                            if (isFirstSnapshot) {
+                                isFirstSnapshot = false;
+                                showToast(`เชื่อมต่อ Firestore แล้ว (${cloudPlaces.length} แห่ง)`, 'fa-fire');
+                            }
+                        }
+                    }, (err) => {
+                        console.warn('Firestore realtime error:', err);
+                        showToast('เชื่อมต่อ Firestore ไม่สำเร็จ (ตรวจสอบ Rules ใน Firebase Console)', 'fa-triangle-exclamation', true);
+                    });
+                } catch (err) {
+                    console.warn('Firestore sync error:', err);
+                    showToast('เชื่อมต่อ Firestore ไม่สำเร็จ (ตรวจสอบว่าสร้างฐานข้อมูลแล้ว)', 'fa-triangle-exclamation', true);
                 }
             }
 
@@ -1117,6 +1508,11 @@
                     console.warn('Could not save place to localStorage:', err);
                 }
                 places.unshift(newPlace);
+                savePlaceToFirestore(newPlace).then((ok) => {
+                    if (ok) {
+                        showToast(`บันทึก "${newPlace.name}" ขึ้น Firestore แล้ว!`, 'fa-cloud-arrow-up');
+                    }
+                });
             }
 
             // =================================================================
@@ -1162,9 +1558,11 @@
                 streetLayer.addTo(map);
                 setTimeout(() => map.invalidateSize(), 300);
 
-                // Map Click Event for "Add New Pin" Picking Mode
+                // Map Click Event for "Add New Pin" or "Move Pin" Picking Mode
                 map.on('click', (e) => {
-                    if (state.isPickingLocation) {
+                    if (state.movingPlaceId) {
+                        applyMovedCoords(e.latlng.lat, e.latlng.lng);
+                    } else if (state.isPickingLocation) {
                         openAddModalWithCoords(e.latlng.lat, e.latlng.lng);
                     }
                 });
@@ -1462,9 +1860,14 @@
                         <div class="space-y-2.5 text-sm">
                             <div class="flex items-start gap-3">
                                 <i class="fa-solid fa-location-dot text-emerald-600 mt-1 w-4 text-center shrink-0"></i>
-                                <div>
+                                <div class="flex-1">
                                     <p class="text-slate-800 font-medium">${escapeHTML(place.address || place.subdistrict + ' อ.เทิง จ.เชียงราย')}</p>
-                                    <p class="text-[11px] text-slate-400 font-mono mt-0.5">${place.lat.toFixed(5)}, ${place.lng.toFixed(5)}</p>
+                                    <div class="flex items-center flex-wrap gap-2 mt-1">
+                                        <p class="text-[11px] text-slate-400 font-mono">${place.lat.toFixed(6)}, ${place.lng.toFixed(6)}</p>
+                                        <button id="btn-move-pin" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-heading font-medium transition">
+                                            <i class="fa-solid fa-location-crosshairs text-[10px]"></i> ย้ายพิกัด
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="flex items-start gap-3">
@@ -1529,9 +1932,13 @@
                 // Bind Detail View Buttons
                 document.getElementById('btn-back-to-list').addEventListener('click', closeDetailView);
                 document.getElementById('btn-share-place').addEventListener('click', () => {
-                    const shareText = `${place.name} (${place.subdistrict} อ.เทิง จ.เชียงราย)\nพิกัด: ${place.lat.toFixed(5)}, ${place.lng.toFixed(5)}\nGoogle Maps: https://www.google.com/maps?q=${place.lat},${place.lng}`;
+                    const shareText = `${place.name} (${place.subdistrict} อ.เทิง จ.เชียงราย)\nพิกัด: ${place.lat.toFixed(6)}, ${place.lng.toFixed(6)}\nGoogle Maps: https://www.google.com/maps?q=${place.lat},${place.lng}`;
                     copyToClipboard(shareText, 'คัดลอกพิกัดและลิงก์แผนที่แล้ว!');
                 });
+                const btnMovePin = document.getElementById('btn-move-pin');
+                if (btnMovePin) {
+                    btnMovePin.addEventListener('click', () => enterMovePinMode(place));
+                }
             }
 
             // =================================================================
@@ -1618,16 +2025,59 @@
             // =================================================================
             // 11. Add New Pin Flow (Interactive Mode + Modal)
             // =================================================================
+            function setPickingBannerText(title, subtitle) {
+                const titleEl = dom.pickingBanner.querySelector('p.font-heading');
+                const subEl = dom.pickingBanner.querySelector('p.text-xs');
+                if (titleEl) titleEl.textContent = title;
+                if (subEl) subEl.textContent = subtitle;
+            }
+
             function enterPickingMode() {
+                state.movingPlaceId = null;
                 state.isPickingLocation = true;
+                setPickingBannerText('โหมดปักหมุดสถานที่ใหม่', 'คลิกบนแผนที่เพื่อเลือกตำแหน่ง หรือใช้จุดกึ่งกลางแผนที่');
                 document.body.classList.add('picking-mode');
                 dom.pickingBanner.classList.remove('hidden');
                 setMobileDrawerState(false);
                 showToast('คลิกบนแผนที่เพื่อเลือกจุดที่ต้องการปักหมุด', 'fa-location-crosshairs');
             }
 
+            function enterMovePinMode(place) {
+                state.isPickingLocation = false;
+                state.movingPlaceId = place.id;
+                setPickingBannerText(`โหมดย้ายพิกัด: ${place.name}`, 'คลิกบนแผนที่เพื่อวางตำแหน่งใหม่ (จะคัดลอกพิกัดให้อัตโนมัติ)');
+                document.body.classList.add('picking-mode');
+                dom.pickingBanner.classList.remove('hidden');
+                setMobileDrawerState(false);
+                showToast(`คลิกบนแผนที่เพื่อย้ายหมุด "${place.name}"`, 'fa-location-crosshairs');
+            }
+
+            async function applyMovedCoords(lat, lng) {
+                const place = places.find(p => p.id === state.movingPlaceId);
+                exitPickingMode();
+                if (!place) return;
+
+                const newLat = Number(lat.toFixed(6));
+                const newLng = Number(lng.toFixed(6));
+                place.lat = newLat;
+                place.lng = newLng;
+                saveCoordOverride(place.id, newLat, newLng);
+
+                updateApp();
+                renderDetailView(place);
+                map.flyTo([newLat, newLng], Math.max(map.getZoom(), 15), { duration: 0.6 });
+
+                const savedToCloud = await updatePlaceCoordsInFirestore(place.id, newLat, newLng);
+                if (savedToCloud) {
+                    showToast(`บันทึกพิกัดใหม่ของ "${place.name}" ลง Firestore แล้ว!`, 'fa-cloud-arrow-up');
+                } else {
+                    showToast(`ย้ายพิกัดแล้ว (บันทึกในเครื่องชั่วคราว)`, 'fa-location-dot');
+                }
+            }
+
             function exitPickingMode() {
                 state.isPickingLocation = false;
+                state.movingPlaceId = null;
                 document.body.classList.remove('picking-mode');
                 dom.pickingBanner.classList.add('hidden');
                 if (tempPickMarker) {
@@ -1871,7 +2321,11 @@
                 dom.btnCancelPick.addEventListener('click', exitPickingMode);
                 dom.btnUseCenter.addEventListener('click', () => {
                     const c = map.getCenter();
-                    openAddModalWithCoords(c.lat, c.lng);
+                    if (state.movingPlaceId) {
+                        applyMovedCoords(c.lat, c.lng);
+                    } else {
+                        openAddModalWithCoords(c.lat, c.lng);
+                    }
                 });
 
                 // Add Pin Modal
@@ -1897,7 +2351,7 @@
                 initMap();
                 bindEvents();
                 updateApp();
-                syncPlacesFromGoogleSheet();
+                syncPlacesWithFirestore();
             }
 
             window.addEventListener('DOMContentLoaded', init);
